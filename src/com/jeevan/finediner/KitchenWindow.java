@@ -24,7 +24,7 @@ public class KitchenWindow {
 	private Socket soc;
 	private ObjectOutputStream outStream;
 	private ObjectInputStream inStream;
-	public int x = 50;
+	public int x;
 	public ArrayList<Table> tables = new ArrayList<>();
 	/**
 	 * Launch the application.
@@ -86,12 +86,13 @@ public class KitchenWindow {
 			outStream.flush();
 			outStream.reset();
 		} catch (IOException e) {
+			
 			e.printStackTrace();
 		}
 	}
-	public Table findTable(int tn){
+	public Table findTable(String id){
 		for (int i=0; i<tables.size();i++) {
-			if(tables.get(i).tableno == tn){
+			if(tables.get(i).id.equals(id)){
 				return tables.get(i);
 			}
 		}
@@ -103,11 +104,34 @@ public class KitchenWindow {
 				Request req = receive();
 				switch(req.getType()){
 				case Request.NEW_CUSTOMER:
-					Table t = new Table((int) req.getContent());
-					tables.add(t);
+					String cod = (String) req.getContent();
+					if(findTable(cod)==null){
+						Table t = new Table(cod);
+						System.out.println("new customner " + cod);
+						tables.add(t);
+						
+					}
+					
 					break;
 				case Request.NEW_ORDER:
-					findTable((int) req.getContent()).addOrder((ArrayList<Item>) req.getSecondContent());;
+					findTable((String) req.getContent()).addOrder((ArrayList<Item>) req.getSecondContent());;
+					break;
+				case Request.PROGRESS_UPDATE_WAITER:
+					Table tab = findTable((String) req.getContent());
+					
+					if (tab.tt!=null){
+						sendRequest(new Request(Request.PROGRESS_UPDATE_WAITER,(String)req.getSecondContent(),tab.slider.getValue(),tab.slider.getMaximum()));
+					//	System.out.println("req send "+(String)req.getSecondContent());
+					}
+					
+					break;
+				case Request.PROGRESS_UPDATE_CUSTOMER:
+					String tbcode = (String) req.getContent();
+					Table tab2 = findTable(tbcode);
+					if (tab2.tt!=null){
+						sendRequest(new Request(Request.PROGRESS_UPDATE_CUSTOMER,tbcode,tab2.slider.getValue(),tab2.slider.getMaximum()));
+						//System.out.println("req  "+tab2.slider.getValue());
+					}
 					break;
 				}
 
@@ -115,18 +139,21 @@ public class KitchenWindow {
 		}
 	}
 	class Table {
-		int tableno;
-		ArrayList<Item> orders = new ArrayList<Item>();
+		String id ;
+		ArrayList<Item> orders;
 		JPanel panel;
 		JTextPane textPane;
 		JSlider slider;
 		JLabel lblNewLabel ;
 		Timer tt;
+int panelsi;
 
+		public Table(String a){
+			id = a;
+			panelsi = x;
+			x = x+170;
+			orders = new ArrayList<Item>();
 
-		public Table(int a){
-			tableno = a;
-			x = x+160;
 		}
 		public long compareTime(ArrayList<Item> a, long total) {
 			for (Item item: a) {
@@ -141,7 +168,7 @@ public class KitchenWindow {
 		public void addOrder(ArrayList<Item> it) {
 			if (panel==null){
 				panel = new JPanel();
-				panel.setBounds(x, 11, 160, 387);
+				panel.setBounds(panelsi, 11, 160, 387);
 				panel.setLayout(null);
 				slider = new JSlider(0,(int)compareTime(it,0),1);
 				slider.setBounds(10, 282, 141, 42);
@@ -154,8 +181,8 @@ public class KitchenWindow {
 				{
 					public void mousePressed(MouseEvent event) {
 						//Mouse Pressed Functionality add here
-						
-							
+
+
 					}
 
 					@Override
@@ -178,13 +205,13 @@ public class KitchenWindow {
 						if (tt!=null){
 							int w = slider.getValue();
 							lblNewLabel.setText(""+w);
-							sendRequest(new Request(Request.NEW_ORDER,tableno,w));
+							sendRequest(new Request(Request.PROGRESS_UPDATE_CUSTOMER,id,slider.getValue(),slider.getMaximum()));
 
 						}
 						else
 						{
 							slider.setValue(0);
-							sendRequest(new Request(Request.NEW_ORDER,tableno,slider.getMaximum()));
+							sendRequest(new Request(Request.PROGRESS_UPDATE_CUSTOMER,id,slider.getMaximum(),slider.getMaximum()));
 
 						}
 					}
@@ -232,18 +259,18 @@ public class KitchenWindow {
 							slider.setValue(slider.getValue() + 100);
 						} else {
 							tt.stop();
-				            EventQueue.invokeLater(new Runnable() {
-				                @Override
-				                public void run() {
-				                    slider.dispatchEvent(
-				                                   new MouseEvent(slider, 
-				                                   MouseEvent.MOUSE_RELEASED,
-				                                   0,0,0,0,1,false));
-				                    slider.setEnabled(false);
-				                    slider.setValue(0);
-				               }
-				            });
-				            tt = null;
+							EventQueue.invokeLater(new Runnable() {
+								@Override
+								public void run() {
+									slider.dispatchEvent(
+											new MouseEvent(slider, 
+													MouseEvent.MOUSE_RELEASED,
+													0,0,0,0,1,false));
+									slider.setEnabled(false);
+									slider.setValue(0);
+								}
+							});
+							tt = null;
 						}  
 					}
 
